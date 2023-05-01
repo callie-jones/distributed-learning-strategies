@@ -64,23 +64,21 @@ class DistributedLearningStrategies:
             print("ERROROR! Bad framework: ")
         return model
 
-    def get_pt_training_args(self, model_type):
+    @staticmethod
+    def get_model_learning_rate(model_type):
+        return 5e-5 if model_type == "cnn" else 1e-5
+
+    def get_pt_training_args(self, model_type, debug_mode):
         eff_batch_size = None
-        learning_rate = None
+        learning_rate = self.get_model_learning_rate(model_type)
         train_batch_size = 128
-        train_epochs = None
-        weight_decay = None
+        train_epochs = 1 if debug_mode else 30
+        weight_decay = 1e-8
         num_gpus = torch.cuda.device_count()
         if model_type == "cnn":
             eff_batch_size = 512
-            learning_rate = 5e-5
-            train_epochs = 30
-            weight_decay = 1e-8
         elif model_type == "transformer":
             eff_batch_size = 1024
-            learning_rate = 1e-5
-            train_epochs = 30
-            weight_decay = 1e-8
         else:
             print("BAD MODEL TYPE")
         acc_steps = round(eff_batch_size / (num_gpus * train_batch_size))
@@ -120,7 +118,7 @@ class DistributedLearningStrategies:
         # get model
         model = self.get_model(model_name, "pt")
         # get training arguments
-        training_args = self.get_pt_training_args(model_type)
+        training_args = self.get_pt_training_args(model_type, debug_mode)
         # train
         trainer = Trainer(
             model=model,
@@ -131,10 +129,10 @@ class DistributedLearningStrategies:
         )
         trainer.train()
 
-    def run_tf_experiment(self, model_type):
+    def run_tf_experiment(self, model_type, debug_mode):
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            EPOCHS = 30
+            EPOCHS = 1 if debug_mode else 30
             model_name = "facebook/convnext-base-224-22k" if model_type == "cnn" else "microsoft/swin-base-patch4-window7-224-in22k"
             # get the dataset
             processed_dataset = self.get_processed_dataset()
@@ -144,7 +142,10 @@ class DistributedLearningStrategies:
 
             # compile the model
             model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                          optimizer=tf.keras.optimizers.Adam(),
+                          optimizer=tf.keras.optimizers.Adam(
+                              learning_rate=self.get_model_learning_rate(model_type),
+                              weight_decay=1e-8
+                          ),
                           metrics=['accuracy'])
             # train the model
             model.fit(tf_train_dataset, epochs=EPOCHS)
@@ -153,6 +154,11 @@ class DistributedLearningStrategies:
             model.load_weights(tf.train.latest_checkpoint("./training_checkpoints"))
             eval_loss, eval_acc = model.evaluate(tf_test_dataset)
             print('Eval loss: {}, Eval accuracy: {}'.format(eval_loss, eval_acc))
+
+    def run_pt(self, model_type):
+        # args = get_train_args(pt)
+        # torch.run(args)
+        pass
 
     def run_all_experiments(self):
         print("==== CNN PyTorch Experiment ====")
@@ -173,5 +179,5 @@ if __name__ == "__main__":
     # run single model
     # run all models
     # debug mode = true -> small epoch = 1
-    DistributedLearningStrategies().run_experiment(mt, fw)
+    DistributedLearningStrategies().run_tf_experiment(mt, fw)
 
