@@ -4,11 +4,14 @@ from transformers import (
     AutoImageProcessor,
     ConvNextForImageClassification,
     TFConvNextForImageClassification,
+    SwinForImageClassification,
+    TFSwinForImageClassification,
+    PreTrainedModel,
     EvalPrediction,
     TrainingArguments,
-    Trainer, AutoFeatureExtractor, AutoModelForImageClassification, TFSwinForImageClassification
 )
 
+FRAMEWORKS = ['pt', 'tf']
 DATASETS = {
     "debug": "mrm8488/ImageNet1K-val",
     "prod": "imagenet-1k"
@@ -43,6 +46,8 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
     """
     if model_type not in MODEL_PARAMS:
         raise ValueError("Argument model_type must be one of 'cnn', 'transformer'. You supplied:", model_type)
+    if framework not in FRAMEWORKS:
+        raise ValueError("Argument framework must be one of 'pt', 'tf'. You supplied:", framework)
 
     # Download the image processor
     processor_name = MODEL_PARAMS[model_type]['name']
@@ -87,16 +92,31 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
     print('\n', processed_dataset, '\n')
     return processed_dataset
 
-def get_model(model_name, framework):
-    # Download pytorch model and preprocessor
+def get_model(model_type: str, framework: str) -> PreTrainedModel:
+    """
+    Return the specified model for the specified framework.
+
+    :param: model_name (str) 'cnn' for ConvNext or 'transformer' for Swin.
+    :param: framework (str) One of 'pt' or 'tf'. Specifies model framework.
+    :returns: (transformers.PreTrainedModel) The specified model from HF.
+    """
+    if model_type not in MODEL_PARAMS:
+        raise ValueError("Argument model_type must be one of 'cnn', 'transformer'. You supplied:", model_type)
+    if framework not in FRAMEWORKS:
+        raise ValueError("Argument framework must be one of 'pt', 'tf'. You supplied:", framework)
+
     model = None
-    if framework == 'tf':
-        model = AutoModelForImageClassification.from_pretrained(model_name)
-    elif framework == 'pt':
-        # Download tensorflow model and preprocessor
-        model = TFSwinForImageClassification.from_pretrained(model_name)
-    else:
-        print("ERROROR! Bad framework: ")
+    model_name = MODEL_PARAMS[model_type]
+
+    if model_type == 'cnn' and framework == 'tf':
+        TFConvNextForImageClassification.from_pretrained(model_name)
+    elif model_type == 'cnn' and framework == 'pt':
+        ConvNextForImageClassification.from_pretrained(model_name)
+    elif model_type == 'transformer' and framework == 'tf':
+        TFSwinForImageClassification.from_pretrained(model_name)
+    elif model_type == 'transformer' and framework == 'pt':
+        SwinForImageClassification.from_pretrained(model_name)
+
     return model
 
 
