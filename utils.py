@@ -1,5 +1,4 @@
-
-from datasets import load_dataset
+import datasets
 import torch
 from transformers import (
     AutoImageProcessor,
@@ -10,6 +9,10 @@ from transformers import (
     Trainer, AutoFeatureExtractor, AutoModelForImageClassification, TFSwinForImageClassification
 )
 
+DATASETS = {
+    "debug": "mrm8488/ImageNet1K-val",
+    "prod": "imagenet-1k"
+}
 MODEL_PARAMS = {
     "cnn": {
         "name": "facebook/convnext-base-224-22k",
@@ -25,28 +28,62 @@ TRAIN_EPOCHS = 30
 WEIGHT_DECAY = 1e-8
 
 
-def preprocessing_fn(self, sample):
-    sample['pixel_values'] = [
-        self.image_processor(
-            image if image.mode == 'RGB' else image.convert('RGB'),
-            return_tensors='pt')['pixel_values'][0]
-        for image in sample['image']
-    ]
-    return sample
-
-
-def get_processed_dataset(full=False):
+def get_processed_data(model_type: str, debug: bool, framework: str):
     """
-    :return:
+    Load the processor for Swin/ConvNext and the data. Preprocess the data using the
+    processor and return it. 
+
+    :param: model_type (str) One of 'cnn' or 'transformer'. Used to load the appropriate processor.
+    :param: debug (bool) One of 'debug' or 'prod'. If 'prod', use full Imagenet. If 'debug',
+                         use only a subset of the validation split.
+    :param: framework (str) One of 'pt' or 'tf'. If 'tf' convert to TensorFlow dataset.
+    :returns: (datasets.DatasetDict) the training data with 'train' and 'test' splits
     """
-    dataset = load_dataset("mrm8488/ImageNet1K-val")
-    data_size = dataset['train'].size if full else 1000
-    processed_dataset = dataset['train']\
-        .select(range(data_size))\
-        .map(preprocessing_fn, remove_columns=['image'], num_proc=None, batched=True, batch_size=1000)
+    if model_type not in MODEL_PARAMS:
+        raise ValueError("Argument model_type must be one of 'cnn', 'transformer'. You supplied:", model_type)
 
-    return processed_dataset.train_test_split(test_size=0.15, stratify_by_column='label')
+    # Download the image processor
+    processor_name = MODEL_PARAMS[model_type]['name']
+    print(f"\nDownloading image processor {processor_name} from Hugging Face hub.\n")
+    processor = AutoImageProcessor.from_pretrained(processor_name)
 
+    # Download the dataset (takes a while if using full dataset)
+    ds_name = DATASETS['debug'] if debug == True else DATASETS['prod']
+    print(f"\nDownloading dataset {ds_name} from Hugging Face hub.\n")
+    raw_dataset = datasets.load_dataset(ds_name)
+
+    # Define function to preprocess images
+    def preprocessing_fn(sample, processor=processor):
+        sample['pixel_values'] = [
+            processor(image.convert('RGB'), return_tensors='pt')['pixel_values'][0]
+                for image in sample['image']
+        ]
+        return sample
+    
+    # Preprocess images (takes a while if using full dataset)
+    print("\nPreprocessing training and validation data.\n")
+    if debug == True:
+        processed_dataset = raw_dataset['train'].select(range(1000)) \
+                                       .map(preprocessing_fn, remove_columns=['image'],
+                                            num_proc=None, batched=True, batch_size=1000
+                                        ).train_test_split(test_size=0.15,
+                                                           stratify_by_column='label')
+    else:
+        processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
+                                            num_proc=2, batched=True, batch_size=1500
+                                        ).train_test_split(
+                                            test_size = 0.15,
+                                            stratify_by_column = 'label')
+        
+    if framework == 'tf':
+        tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns=['pixel_values'], label_cols=['label'],
+                                                                    batch_size=TRAIN_BATCH_SIZE)
+        tf_test_dataset = processed_dataset['test'].to_tf_dataset(columns='pixel_values', label_cols='label',
+                                                                  batch_size=TRAIN_BATCH_SIZE, shuffle=False)
+        processed_dataset = (tf_train_dataset, tf_test_dataset)
+
+    print('\n', processed_dataset, '\n')
+    return processed_dataset
 
 def get_model(model_name, framework):
     # Download pytorch model and preprocessor
