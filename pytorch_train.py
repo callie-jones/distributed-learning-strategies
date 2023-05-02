@@ -1,34 +1,24 @@
 import argparse
-# import numpy as np
-# from PIL import Image
-import tqdm
-import timm.utils
+import os
+import numpy as np
 import torch
+import wandb
 import datasets
 from transformers import (
-    ConvNextForImageClassification,
     EvalPrediction,
     TrainingArguments,
     Trainer,
 )
-
 import utils
-
-def set_layerwise_lr_decay(model: ConvNextForImageClassification) -> ConvNextForImageClassification:
-    """
-    Sets layer-wise learning rate decay for ConvNext models in accordance with how the 
-    original authors did so at: https://github.com/facebookresearch/ConvNeXt/tree/main
-    """
-    raise NotImplementedError
 
 def compute_metrics(eval_preds: EvalPrediction) -> dict:
     """
     Computes top-1 and top-5 accuracy in the training loop.
     """
-    outputs = torch.from_numpy(eval_preds.predictions)
-    targets = torch.from_numpy(eval_preds.label_ids)
-    top1, top5 = timm.utils.accuracy(outputs, targets, topk=(1,5))
-    return {'top_1_acc': top1, 'top_5_acc': top5}
+    predicted_labels = np.argmax(eval_preds.predictions, axis=1)
+    correct_preds = np.sum(predicted_labels == eval_preds.label_ids)
+    accuracy = correct_preds / len(eval_preds.label_ids)
+    return {'accuracy': accuracy}
 
 def main(args: argparse.Namespace):
     debug = True if args.debug == 'debug' else False
@@ -36,30 +26,33 @@ def main(args: argparse.Namespace):
     dataset = utils.get_processed_data(args.model, debug, 'pt')
     model = utils.get_model(args.model, 'pt')
 
-    # if args.model == 'cnn':
-    #     model = set_layerwise_lr_decay(model)
+    os.environ['WANDB_PROJECT'] = 'ml-framework-benchmarking'
+    os.environ['WANDB_LOG_MODEL'] = 'false'
+    os.environ['WANDB_WATCH'] = 'false'
 
     training_args = TrainingArguments(
     
         optim = 'adamw_torch',
-        num_train_epochs = 1 if debug else 30,
+        num_train_epochs = 2 if debug else 30,
         learning_rate = utils.MODEL_PARAMS[args.model]['learningRate'],
-        # cosine learning rate schedule?
-        # layer-wise learning rate decay?
         warmup_ratio = 0.0,
-        per_device_train_batch_size = 128,
-        gradient_accumulation_steps = utils.get_acc_steps(args.model),
-        per_device_eval_batch_size = 128,
-        eval_accumulation_steps = utils.get_acc_steps(args.model),
+        per_device_train_batch_size = int(128 / torch.cuda.device_count()),
+        # gradient_accumulation_steps = utils.get_acc_steps(args.model),
+        per_device_eval_batch_size = int(128 / torch.cuda.device_count()),
+        # eval_accumulation_steps = utils.get_acc_steps(args.model),
         weight_decay = 1e-8,
-        # fp16 = True,
+        ddp_find_unused_parameters = False,
+        ddp_bucket_cap_mb = 25,
+        fp16 = True,
         torch_compile = True if torch.cuda.is_available() else False,
 
         evaluation_strategy = 'epoch',
         logging_strategy = 'epoch',
         output_dir = f'training_output/{args.model}/pt/{torch.cuda.device_count()}_gpus',
         save_strategy = 'epoch',
-        save_total_limit = 2
+        save_total_limit = 2,
+        report_to = 'wandb',
+        run_name = f'{args.model}_pytorch_{args.training_strategy}_{torch.cuda.device_count()}gpus'
     )
 
     print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
@@ -73,6 +66,7 @@ def main(args: argparse.Namespace):
     )
 
     trainer.train()
+    wandb.finish()
     
 
 if __name__ == "__main__":
