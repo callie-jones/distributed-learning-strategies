@@ -1,3 +1,4 @@
+import json
 import datasets
 import torch
 from transformers import (
@@ -108,14 +109,24 @@ def get_model(model_type: str, framework: str) -> PreTrainedModel:
     model = None
     model_name = MODEL_PARAMS[model_type]
 
+    # Download the model from Hugging Face hub
+    print(f"\nDownloading {model_type} for {framework} framework.\n")
     if model_type == 'cnn' and framework == 'tf':
-        TFConvNextForImageClassification.from_pretrained(model_name)
+        model = TFConvNextForImageClassification.from_pretrained(model_name)
     elif model_type == 'cnn' and framework == 'pt':
-        ConvNextForImageClassification.from_pretrained(model_name)
+        model = ConvNextForImageClassification.from_pretrained(model_name)
     elif model_type == 'transformer' and framework == 'tf':
-        TFSwinForImageClassification.from_pretrained(model_name)
+        model = TFSwinForImageClassification.from_pretrained(model_name)
     elif model_type == 'transformer' and framework == 'pt':
-        SwinForImageClassification.from_pretrained(model_name)
+        model = SwinForImageClassification.from_pretrained(model_name)
+
+    # Adjust some configuration settings
+    with open('id2label.json', 'r') as f:
+        id2label = {int(id): label for id, label in json.load(f).items()}
+
+    model.config.id2label = id2label
+    model.config.label2id = {label: id for id, label in id2label.items()}
+    model.config.num_labels = 1000
 
     return model
 
