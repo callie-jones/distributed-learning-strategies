@@ -6,9 +6,9 @@ from transformers import (
     ConvNextForImageClassification,
     TFConvNextForImageClassification,
     SwinForImageClassification,
-    TFSwinForImageClassification,
-    PreTrainedModel,
+    PreTrainedModel
 )
+from tfswin import SwinTransformerBase224
 
 FRAMEWORKS = ['pt', 'tf']
 DATASETS = {
@@ -28,6 +28,7 @@ MODEL_PARAMS = {
     }
 }
 TRAIN_BATCH_SIZE = 128
+PER_DEV_BATCH_SIZE = int(128 / torch.cuda.device_count())
 TRAIN_EPOCHS = 30
 WEIGHT_DECAY = 1e-8
 
@@ -116,7 +117,7 @@ def get_model(model_type: str, framework: str) -> PreTrainedModel:
     elif model_type == 'cnn' and framework == 'pt':
         model = ConvNextForImageClassification.from_pretrained(model_name)
     elif model_type == 'transformer' and framework == 'tf':
-        model = TFSwinForImageClassification.from_pretrained(model_name)
+        model = SwinTransformerBase224()
     elif model_type == 'transformer' and framework == 'pt':
         model = SwinForImageClassification.from_pretrained(model_name)
 
@@ -143,5 +144,5 @@ def get_acc_steps(model_type: str):
         eff_batch_size = 1024
     else:
         print("BAD MODEL TYPE")
-    return round(eff_batch_size / (num_gpus * TRAIN_BATCH_SIZE))
+    return int(eff_batch_size / (num_gpus * TRAIN_BATCH_SIZE))
 

@@ -6,6 +6,8 @@ Distributed Systems Course Project
 ### Build
 ```bash
 !pip install --upgrade tensorflow torch datasets transformers huggingface_hub
+!pip install tfswin
+!pip install tfds-nightly
 ```
 
 ### References
