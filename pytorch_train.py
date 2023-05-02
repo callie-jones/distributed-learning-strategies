@@ -52,8 +52,8 @@ def main(args: argparse.Namespace):
         per_device_eval_batch_size = 128,
         eval_accumulation_steps = utils.get_acc_steps(args.model),
         weight_decay = 1e-8,
-        fp16 = True,
-        torch_compile = True if torch.cuda_is_available() else False,
+        # fp16 = True,
+        torch_compile = True if torch.cuda.is_available() else False,
 
         evaluation_strategy = 'epoch',
         logging_strategy = 'epoch',
@@ -61,6 +61,8 @@ def main(args: argparse.Namespace):
         save_strategy = 'epoch',
         save_total_limit = 2
     )
+
+    print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
 
     trainer = Trainer(
     model = model,
