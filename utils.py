@@ -37,7 +37,9 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
     :param: debug (bool) One of 'debug' or 'prod'. If 'prod', use full Imagenet. If 'debug',
                          use only a subset of the validation split.
     :param: framework (str) One of 'pt' or 'tf'. If 'tf' convert to TensorFlow dataset.
-    :returns: (datasets.DatasetDict) the training data with 'train' and 'test' splits
+    :returns: The training data with 'train' and 'test' splits. If framework is 'pt', returns a 
+              datasets.DatasetDict. If framework is 'tf', returns a tuple (train_ds, test_ds)
+              of TensorFlow datasets that can be passed directly to model.fit().
     """
     if model_type not in MODEL_PARAMS:
         raise ValueError("Argument model_type must be one of 'cnn', 'transformer'. You supplied:", model_type)
@@ -76,7 +78,7 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                             stratify_by_column = 'label')
         
     if framework == 'tf':
-        tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns=['pixel_values'], label_cols=['label'],
+        tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns='pixel_values', label_cols='label',
                                                                     batch_size=TRAIN_BATCH_SIZE)
         tf_test_dataset = processed_dataset['test'].to_tf_dataset(columns='pixel_values', label_cols='label',
                                                                   batch_size=TRAIN_BATCH_SIZE, shuffle=False)
