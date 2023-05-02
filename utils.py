@@ -107,7 +107,7 @@ def get_model(model_type: str, framework: str) -> PreTrainedModel:
         raise ValueError("Argument framework must be one of 'pt', 'tf'. You supplied:", framework)
 
     model = None
-    model_name = MODEL_PARAMS[model_type]
+    model_name = MODEL_PARAMS[model_type]['name']
 
     # Download the model from Hugging Face hub
     print(f"\nDownloading {model_type} for {framework} framework.\n")
@@ -130,8 +130,11 @@ def get_model(model_type: str, framework: str) -> PreTrainedModel:
 
     return model
 
+def get_acc_steps(model_type: str):
 
-def get_acc_steps(model_type):
+    if model_type not in MODEL_PARAMS:
+        raise ValueError("Argument model_type must be one of 'cnn', 'transformer'. You supplied:", model_type)
+        
     num_gpus = torch.cuda.device_count()
     eff_batch_size = None
     if model_type == "cnn":
