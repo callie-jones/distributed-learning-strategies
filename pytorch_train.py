@@ -25,6 +25,7 @@ def main(args: argparse.Namespace):
 
     dataset = utils.get_processed_data(args.model, debug, 'pt')
     model = utils.get_model(args.model, 'pt')
+    model_name_short = utils.MODEL_PARAMS[args.model]['name_short']
 
     os.environ['WANDB_PROJECT'] = 'ml-framework-benchmarking'
     os.environ['WANDB_LOG_MODEL'] = 'false'
@@ -52,7 +53,7 @@ def main(args: argparse.Namespace):
         save_strategy = 'epoch',
         save_total_limit = 2,
         report_to = 'wandb',
-        run_name = f'{args.model}_pytorch_{args.training_strategy}_{torch.cuda.device_count()}gpus'
+        run_name = f'{model_name_short}_pytorch_{args.training_strategy}_{torch.cuda.device_count()}_gpu(s)'
     )
 
     print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
