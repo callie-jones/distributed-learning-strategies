@@ -8,8 +8,6 @@ from transformers import (
     SwinForImageClassification,
     TFSwinForImageClassification,
     PreTrainedModel,
-    EvalPrediction,
-    TrainingArguments,
 )
 
 FRAMEWORKS = ['pt', 'tf']
@@ -20,10 +18,12 @@ DATASETS = {
 MODEL_PARAMS = {
     "cnn": {
         "name": "facebook/convnext-base-224-22k",
+        "name_short": "convnext",
         "learningRate": 5e-5
     },
     "transformer": {
         "name": "microsoft/swin-base-patch4-window7-224-in22k",
+        "name_short": "swin",
         "learningRate": 1e-5
     }
 }
