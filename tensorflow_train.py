@@ -48,34 +48,29 @@ class DistributedLearningTensorFlow:
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             EPOCHS = 1 if debug_mode else utils.TRAIN_EPOCHS
-            model_name = utils.MODEL_PARAMS[model_type].name
 
-            strategy = tf.distribute.MirroredStrategy()
-            with strategy.scope():
-                EPOCHS = 1 if debug_mode else utils.TRAIN_EPOCHS
+            processed_dataset = self.get_transformer_data() if model_type == "transformer" else utils.get_processed_data(model_type, debug_mode, "tf")
 
-                processed_dataset = self.get_transformer_data() if model_type == "transformer" else utils.get_processed_data(model_type, debug_mode, "tf")
+            model = utils.get_model(model_type, "tf")
 
-                model = utils.get_model(model_type, "tf")
+            # compile the model
+            optimizer = tf.keras.optimizers.Adam(
+                learning_rate=utils.MODEL_PARAMS[model_type]["learningRate"],
+                weight_decay=utils.WEIGHT_DECAY
+            )
+            # GradientAccumulator(optimizer, accum_steps=get_acc_steps(model_type))
+            tf.keras.mixed_precision.set_global_policy('mixed_float16')
+            model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                          optimizer=optimizer,
+                          metrics=['accuracy'])
 
-                # compile the model
-                optimizer = tf.keras.optimizers.Adam(
-                    learning_rate=utils.MODEL_PARAMS[model_type]["learningRate"],
-                    weight_decay=utils.WEIGHT_DECAY
-                )
-                # GradientAccumulator(optimizer, accum_steps=get_acc_steps(model_type))
-                tf.keras.mixed_precision.set_global_policy('mixed_float16')
-                model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                              optimizer=optimizer,
-                              metrics=['accuracy'])
-
-                # train the model
-                run = wandb.init(
-                    project='ml-framework-benchmarking',
-                    name=f'{utils.MODEL_PARAMS[model_type]["name_short"]}_tensorflow_{torch.cuda.device_count()}_gpu(s)'
-                )
-                model.fit(processed_dataset["train"], validation_data=processed_dataset["validation"],
-                          epochs=EPOCHS)  # steps_per_epoch
+            # train the model
+            run = wandb.init(
+                project='ml-framework-benchmarking',
+                name=f'{utils.MODEL_PARAMS[model_type]["name_short"]}_tensorflow_{torch.cuda.device_count()}_gpu(s)'
+            )
+            model.fit(processed_dataset["train"], validation_data=processed_dataset["validation"],
+                      epochs=EPOCHS)  # steps_per_epoch
 
 
 if __name__ == '__main__':
