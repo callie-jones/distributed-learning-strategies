@@ -87,7 +87,7 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                                            stratify_by_column='label')
     else:
         processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
-                                            num_proc=2, batched=True, batch_size=1500)
+                                            num_proc=4, batched=True, batch_size=1500)
         
     if framework == 'tf':
         tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns='pixel_values', label_cols='label',
@@ -97,7 +97,7 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
         processed_dataset = (tf_train_dataset, tf_test_dataset)
 
     print(f"\nSaving dataset to disk in {saved_ds_dir}.")
-    processed_dataset.save_to_disk(nproc=2)
+    processed_dataset.save_to_disk(nproc=4)
 
     print('\n', processed_dataset, '\n')
     return processed_dataset
