@@ -1,5 +1,6 @@
-import sys, os
-
+import sys
+import os
+import argparse
 import tensorflow as tf
 import torch.cuda
 
@@ -45,18 +46,18 @@ class DistributedLearningTensorFlow:
 
         return image, sample['label']
 
-    def run_experiment(self, model_type, debug_mode=True):
+    def run_experiment(self, args):
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            EPOCHS = 1 if debug_mode else utils.TRAIN_EPOCHS
+            EPOCHS = 1 if args.debug else utils.TRAIN_EPOCHS
 
-            processed_dataset = self.get_transformer_data() if model_type == "transformer" else utils.get_processed_data(model_type, debug_mode, "tf")
+            processed_dataset = self.get_transformer_data() if args.model == "transformer" else utils.get_processed_data(args.model, args.debug, "tf")
 
-            model = utils.get_model(model_type, "tf")
+            model = utils.get_model(args.model, "tf")
 
             # compile the model
             optimizer = tf.keras.optimizers.Adam(
-                learning_rate=utils.MODEL_PARAMS[model_type]["learningRate"],
+                learning_rate=utils.MODEL_PARAMS[args.model]["learningRate"],
                 weight_decay=utils.WEIGHT_DECAY
             )
             # GradientAccumulator(optimizer, accum_steps=get_acc_steps(model_type))
@@ -68,13 +69,18 @@ class DistributedLearningTensorFlow:
             # train the model
             run = wandb.init(
                 project='ml-framework-benchmarking',
-                name=f'{utils.MODEL_PARAMS[model_type]["name_short"]}_tensorflow_{torch.cuda.device_count()}_gpu(s)'
+                name=f'{utils.MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{torch.cuda.device_count()}_gpu(s)'
             )
             model.fit(processed_dataset["train"], validation_data=processed_dataset["validation"],
                       epochs=EPOCHS)  # steps_per_epoch
 
 
 if __name__ == '__main__':
-    mt = sys.argv[1] if len(sys.argv) == 3 else "cnn"
-    DistributedLearningTensorFlow().run_experiment(mt)
+    parser = argparse.ArgumentParser("Script for training ConvNext and Swin models in TensorFlow.")
+    parser.add_argument('model', choices=['cnn', 'transformer'],
+                        help='the model to train eg. "cnn" or "transformer"')
+    parser.add_argument('debug', choices=['debug', 'prod'],
+                        help='"debug" to train for one epoch on small data else "prod" to do full training')
+    parsed_args = parser.parse_args()
+    DistributedLearningTensorFlow().run_experiment(parsed_args)
 
