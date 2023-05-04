@@ -1,14 +1,13 @@
-import sys
+import sys, os
 
 import tensorflow as tf
 import torch.cuda
 
 import utils
-from tensorflow_gradient_accumulator import GradientAccumulator
 import wandb
 from wandb.keras import WandbMetricsLogger
 import tensorflow_datasets as tfds
-from tfswin import SwinTransformerBase224, preprocess_input
+from tfswin import preprocess_input
 
 
 class DistributedLearningTensorFlow:
@@ -16,7 +15,9 @@ class DistributedLearningTensorFlow:
         pass
 
     def get_transformer_data(self):
-        processed_dataset = tfds.load('imagenet2012', split='validation', shuffle_files=True)
+        isSaved = True if os.path.exists(f'imagenet2012.tfrecord') else False
+        print(f"\nDownloading dataset: {isSaved}")
+        processed_dataset = tfds.load('imagenet2012', split='validation', shuffle_files=True, download=isSaved)
         processed_dataset = processed_dataset.map(self.preprocessing_fn, num_parallel_calls=tf.data.AUTOTUNE)
         processed_dataset = processed_dataset.batch(utils.TRAIN_BATCH_SIZE)
         return processed_dataset
