@@ -24,6 +24,7 @@ class DistributedLearningTensorFlow:
         return processed_dataset
 
     def preprocessing_fn(self, sample, input_size=224, crop_pct=0.875):
+        print("\npre-processing TensorFlow data")
         scale_size = tf.math.floor(input_size / crop_pct)
 
         image = sample['image']
@@ -47,12 +48,14 @@ class DistributedLearningTensorFlow:
         return image, sample['label']
 
     def run_experiment(self, args):
+        print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             EPOCHS = 1 if args.debug else utils.TRAIN_EPOCHS
 
             processed_dataset = self.get_transformer_data() if args.model == "transformer" else utils.get_processed_data(args.model, args.debug, "tf")
 
+            print("\nRetrieve model")
             model = utils.get_model(args.model, "tf")
 
             # compile the model
@@ -62,6 +65,7 @@ class DistributedLearningTensorFlow:
             )
             # GradientAccumulator(optimizer, accum_steps=get_acc_steps(model_type))
             tf.keras.mixed_precision.set_global_policy('mixed_float16')
+            print("\nCompile Model")
             model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                           optimizer=optimizer,
                           metrics=['accuracy'])
