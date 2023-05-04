@@ -12,7 +12,7 @@ from tfswin import preprocess_input
 
 class DistributedLearningTensorFlow:
     def get_transformer_data(self):
-        isSaved = True if os.path.exists(f'imagenet2012.tfrecord') else False
+        isSaved = not os.path.exists(f'imagenet2012.tfrecord')
         print(f"\nDownloading dataset: {isSaved}")
         processed_dataset = tfds.load('imagenet2012', split='validation', shuffle_files=True, download=isSaved)
         processed_dataset = processed_dataset.map(self.preprocessing_fn, num_parallel_calls=tf.data.AUTOTUNE)
