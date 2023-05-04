@@ -1,4 +1,3 @@
-import sys
 import os
 import argparse
 import tensorflow as tf
@@ -12,9 +11,6 @@ from tfswin import preprocess_input
 
 
 class DistributedLearningTensorFlow:
-    def __init__(self):
-        pass
-
     def get_transformer_data(self):
         isSaved = True if os.path.exists(f'imagenet2012.tfrecord') else False
         print(f"\nDownloading dataset: {isSaved}")
@@ -51,7 +47,7 @@ class DistributedLearningTensorFlow:
         print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            EPOCHS = 1 if args.debug else utils.TRAIN_EPOCHS
+            EPOCHS = 1 if args.debug == "debug" else utils.TRAIN_EPOCHS
 
             processed_dataset = self.get_transformer_data() if args.model == "transformer" else utils.get_processed_data(args.model, args.debug, "tf")
 

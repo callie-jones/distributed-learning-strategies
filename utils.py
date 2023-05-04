@@ -29,7 +29,7 @@ MODEL_PARAMS = {
     }
 }
 TRAIN_BATCH_SIZE = 128
-PER_DEV_BATCH_SIZE = int(128 / torch.cuda.device_count())
+PER_DEV_BATCH_SIZE = int(128 / max(torch.cuda.device_count(), 1))
 TRAIN_EPOCHS = 30
 WEIGHT_DECAY = 1e-8
 
