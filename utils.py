@@ -7,9 +7,10 @@ from transformers import (
     ConvNextForImageClassification,
     TFConvNextForImageClassification,
     SwinForImageClassification,
-    PreTrainedModel
+    PreTrainedModel,
+    AutoConfig
 )
-from tfswin import SwinTransformerBase224
+#from tfswin import SwinTransformerBase224
 
 FRAMEWORKS = ['pt', 'tf']
 DATASETS = {
@@ -124,7 +125,8 @@ def get_model(model_type: str, framework: str) -> PreTrainedModel:
     # Download the model from Hugging Face hub
     print(f"\nDownloading {model_type} for {framework} framework.\n")
     if model_type == 'cnn' and framework == 'tf':
-        model = TFConvNextForImageClassification.from_pretrained(model_name)
+        config = AutoConfig.from_pretrained(model_name)
+        model = TFConvNextForImageClassification(config)
     elif model_type == 'cnn' and framework == 'pt':
         model = ConvNextForImageClassification.from_pretrained(model_name)
     elif model_type == 'transformer' and framework == 'tf':

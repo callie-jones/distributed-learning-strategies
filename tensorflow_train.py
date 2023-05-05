@@ -5,8 +5,8 @@ import tensorflow as tf
 import utils
 import wandb
 from wandb.keras import WandbMetricsLogger
-import tensorflow_datasets as tfds
-from tfswin import SwinTransformerBase224, preprocess_input
+#import tensorflow_datasets as tfds
+#from tfswin import SwinTransformerBase224, preprocess_input
 
 FRAMEWORKS = ['pt', 'tf']
 DATASETS = {
@@ -94,7 +94,7 @@ class DistributedLearningTensorFlow:
             # train the model
             run = wandb.init(
                 project='ml-framework-benchmarking',
-                name=f'{MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{len(tf.config.list_physical_devices("gpu"))}_gpu(s)'
+                name=f'{MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{len(tf.config.list_physical_devices("GPU"))}_gpu(s)'
             )
             model.fit(processed_dataset_train, validation_data=processed_dataset_validation,
                       epochs=EPOCHS)  # steps_per_epoch
