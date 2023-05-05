@@ -69,11 +69,14 @@ class DistributedLearningTensorFlow:
         with strategy.scope():
             EPOCHS = 1 if args.debug == "debug" else TRAIN_EPOCHS
 
-            processed_dataset = self.get_transformer_data() if args.model == "transformer" else utils.get_processed_data(args.model, args.debug, "tf")
+            if args.model == "transformer":
+                processed_dataset_train = self.get_transformer_data()
+            else:
+                processed_dataset_train, processed_dataset_validation = utils.get_processed_data(args.model, args.debug, "tf")
 
             print("\nRetrieve model")
             # model = utils.get_model(args.model, "tf")
-            model = SwinTransformerBase224()
+            model = utils.get_model(args.model, "tf")
 
             # compile the model
             optimizer = tf.keras.optimizers.Adam(
@@ -93,7 +96,7 @@ class DistributedLearningTensorFlow:
                 project='ml-framework-benchmarking',
                 name=f'{MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{len(tf.config.list_physical_devices("gpu"))}_gpu(s)'
             )
-            model.fit(processed_dataset["train"], validation_data=processed_dataset["validation"],
+            model.fit(processed_dataset_train, validation_data=processed_dataset_validation,
                       epochs=EPOCHS)  # steps_per_epoch
 
 
