@@ -1,14 +1,34 @@
 import os
 import argparse
 import tensorflow as tf
-import torch.cuda
 
-import utils
+# import utils
 import wandb
 from wandb.keras import WandbMetricsLogger
 import tensorflow_datasets as tfds
-from tfswin import preprocess_input
+from tfswin import SwinTransformerBase224, preprocess_input
 
+FRAMEWORKS = ['pt', 'tf']
+DATASETS = {
+    "debug": "mrm8488/ImageNet1K-val",
+    "prod": "imagenet-1k"
+}
+MODEL_PARAMS = {
+    "cnn": {
+        "name": "facebook/convnext-base-224-22k",
+        "name_short": "convnext",
+        "learningRate": 5e-5
+    },
+    "transformer": {
+        "name": "microsoft/swin-base-patch4-window7-224-in22k",
+        "name_short": "swin",
+        "learningRate": 1e-5
+    }
+}
+TRAIN_BATCH_SIZE = 128
+PER_DEV_BATCH_SIZE = int(128 / max(len(tf.config.list_physical_devices("gpu")), 1))
+TRAIN_EPOCHS = 30
+WEIGHT_DECAY = 1e-8
 
 class DistributedLearningTensorFlow:
     def get_transformer_data(self):
@@ -16,7 +36,7 @@ class DistributedLearningTensorFlow:
         print(f"\nDownloading dataset: {isSaved}")
         processed_dataset = tfds.load('imagenet2012', split='validation', shuffle_files=True, download=isSaved)
         processed_dataset = processed_dataset.map(self.preprocessing_fn, num_parallel_calls=tf.data.AUTOTUNE)
-        processed_dataset = processed_dataset.batch(utils.TRAIN_BATCH_SIZE)
+        processed_dataset = processed_dataset.batch(TRAIN_BATCH_SIZE)
         return processed_dataset
 
     def preprocessing_fn(self, sample, input_size=224, crop_pct=0.875):
@@ -47,17 +67,18 @@ class DistributedLearningTensorFlow:
         print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            EPOCHS = 1 if args.debug == "debug" else utils.TRAIN_EPOCHS
+            EPOCHS = 1 if args.debug == "debug" else TRAIN_EPOCHS
 
-            processed_dataset = self.get_transformer_data() if args.model == "transformer" else utils.get_processed_data(args.model, args.debug, "tf")
+            processed_dataset = self.get_transformer_data() if args.model == "transformer" else None #utils.get_processed_data(args.model, args.debug, "tf")
 
             print("\nRetrieve model")
-            model = utils.get_model(args.model, "tf")
+            # model = utils.get_model(args.model, "tf")
+            model = SwinTransformerBase224()
 
             # compile the model
             optimizer = tf.keras.optimizers.Adam(
-                learning_rate=utils.MODEL_PARAMS[args.model]["learningRate"],
-                weight_decay=utils.WEIGHT_DECAY
+                learning_rate=MODEL_PARAMS[args.model]["learningRate"],
+                weight_decay=WEIGHT_DECAY
             )
             # GradientAccumulator(optimizer, accum_steps=get_acc_steps(model_type))
             tf.keras.mixed_precision.set_global_policy('mixed_float16')
@@ -69,7 +90,7 @@ class DistributedLearningTensorFlow:
             # train the model
             run = wandb.init(
                 project='ml-framework-benchmarking',
-                name=f'{utils.MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{torch.cuda.device_count()}_gpu(s)'
+                name=f'{MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{len(tf.config.list_physical_devices("gpu"))}_gpu(s)'
             )
             model.fit(processed_dataset["train"], validation_data=processed_dataset["validation"],
                       epochs=EPOCHS)  # steps_per_epoch
