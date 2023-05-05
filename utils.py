@@ -88,7 +88,7 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
     else:
         # processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
         #                                     num_proc=4, batched=True, batch_size=1500)
-        processed_dataset = raw_dataset['train'].map(preprocessing_fn, remove_columns=['image'],
+        processed_dataset = raw_dataset['train'].select(range(12500)).map(preprocessing_fn, remove_columns=['image'],
                                             num_proc=4, batched=True, batch_size=1500
                                         ).train_test_split(test_size=0.2,
                                                            stratify_by_column='label')
