@@ -2,7 +2,7 @@ import os
 import argparse
 import tensorflow as tf
 
-# import utils
+import utils
 import wandb
 from wandb.keras import WandbMetricsLogger
 import tensorflow_datasets as tfds
@@ -69,7 +69,7 @@ class DistributedLearningTensorFlow:
         with strategy.scope():
             EPOCHS = 1 if args.debug == "debug" else TRAIN_EPOCHS
 
-            processed_dataset = self.get_transformer_data() if args.model == "transformer" else None #utils.get_processed_data(args.model, args.debug, "tf")
+            processed_dataset = self.get_transformer_data() if args.model == "transformer" else utils.get_processed_data(args.model, args.debug, "tf")
 
             print("\nRetrieve model")
             # model = utils.get_model(args.model, "tf")
@@ -85,6 +85,7 @@ class DistributedLearningTensorFlow:
             print("\nCompile Model")
             model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                           optimizer=optimizer,
+                          jit_compile=True,
                           metrics=['accuracy'])
 
             # train the model
