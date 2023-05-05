@@ -14,7 +14,7 @@ from tfswin import SwinTransformerBase224
 FRAMEWORKS = ['pt', 'tf']
 DATASETS = {
     "debug": "mrm8488/ImageNet1K-val",
-    "prod": "imagenet-1k"
+    "prod": "mrm8488/ImageNet1K-val"
 }
 MODEL_PARAMS = {
     "cnn": {
@@ -52,11 +52,11 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
     if framework not in FRAMEWORKS:
         raise ValueError("Argument framework must be one of 'pt', 'tf'. You supplied:", framework)
     
-    # Load dataset from disk if it already exists
-    debug_str = 'debug' if debug else 'prod'
-    saved_ds_dir = f'processed_dataset_{model_type}_{framework}_{debug_str}'
-    if os.path.exists(saved_ds_dir) and os.path.isdir(saved_ds_dir):
-        return datasets.load_dataset(saved_ds_dir)
+    # # Load dataset from disk if it already exists
+    # debug_str = 'debug' if debug else 'prod'
+    # saved_ds_dir = f'processed_dataset_{model_type}_{framework}_{debug_str}'
+    # if os.path.exists(saved_ds_dir) and os.path.isdir(saved_ds_dir):
+    #     return datasets.load_dataset(saved_ds_dir)
 
     # Download the image processor
     processor_name = MODEL_PARAMS[model_type]['name']
@@ -85,8 +85,12 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                         ).train_test_split(test_size=0.15,
                                                            stratify_by_column='label')
     else:
-        processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
-                                            num_proc=4, batched=True, batch_size=1500)
+        # processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
+        #                                     num_proc=4, batched=True, batch_size=1500)
+        processed_dataset = raw_dataset['train'].map(preprocessing_fn, remove_columns=['image'],
+                                            num_proc=4, batched=True, batch_size=1500
+                                        ).train_test_split(test_size=0.2,
+                                                           stratify_by_column='label')
         
     if framework == 'tf':
         tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns='pixel_values', label_cols='label',
@@ -95,8 +99,8 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                                                   batch_size=TRAIN_BATCH_SIZE, shuffle=False)
         processed_dataset = (tf_train_dataset, tf_test_dataset)
 
-    print(f"\nSaving dataset to disk in {saved_ds_dir}.")
-    processed_dataset.save_to_disk(nproc=4)
+    # print(f"\nSaving dataset to disk in {saved_ds_dir}.")
+    # processed_dataset.save_to_disk(nproc=4)
 
     print('\n', processed_dataset, '\n')
     return processed_dataset
