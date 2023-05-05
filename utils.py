@@ -85,8 +85,12 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                         ).train_test_split(test_size=0.15,
                                                            stratify_by_column='label')
     else:
-        processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
-                                            num_proc=4, batched=True, batch_size=1500)
+        # processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
+        #                                     num_proc=4, batched=True, batch_size=1500)
+        processed_dataset = raw_dataset['train'].map(preprocessing_fn, remove_columns=['image'],
+                                            num_proc=None, batched=True, batch_size=1000
+                                        ).train_test_split(test_size=0.15,
+                                                           stratify_by_column='label')
         
     if framework == 'tf':
         tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns='pixel_values', label_cols='label',
