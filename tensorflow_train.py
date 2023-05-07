@@ -67,7 +67,7 @@ class DistributedLearningTensorFlow:
         print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            EPOCHS = 10 if args.debug == "debug" else TRAIN_EPOCHS
+            EPOCHS = 5 if args.debug == "debug" else TRAIN_EPOCHS
 
             if args.model == "transformer":
                 processed_dataset_train = self.get_transformer_data()
