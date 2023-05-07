@@ -67,7 +67,7 @@ class DistributedLearningTensorFlow:
         print(f"\nBeginning {args.model} training in {args.debug} mode.\n")
         strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
-            EPOCHS = 1 if args.debug == "debug" else TRAIN_EPOCHS
+            EPOCHS = 10 if args.debug == "debug" else TRAIN_EPOCHS
 
             if args.model == "transformer":
                 processed_dataset_train = self.get_transformer_data()
@@ -94,8 +94,7 @@ class DistributedLearningTensorFlow:
             # train the model
             run = wandb.init(
                 project='ml-framework-benchmarking',
-                name=f'{MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{len(tf.config.list_physical_devices("GPU"))}_gpu(s)'
-            )
+                name=f'{MODEL_PARAMS[args.model]["name_short"]}_tensorflow_{len(tf.config.list_physical_devices("GPU"))}_gpu(s)')
             model.fit(processed_dataset_train, validation_data=processed_dataset_validation,
                       epochs=EPOCHS)  # steps_per_epoch
 
