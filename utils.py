@@ -86,12 +86,19 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                         ).train_test_split(test_size=0.15,
                                                            stratify_by_column='label')
     else:
-        # processed_dataset = raw_dataset.map(preprocessing_fn, remove_columns=['image'],
-        #                                     num_proc=4, batched=True, batch_size=1500)
-        processed_dataset = raw_dataset['train'].select(range(12500)).map(preprocessing_fn, remove_columns=['image'],
-                                            num_proc=4, batched=True, batch_size=1500
-                                        ).train_test_split(test_size=0.2,
-                                                           stratify_by_column='label')
+        # processed_dataset = raw_dataset['train'].select(range(12500)).map(preprocessing_fn, remove_columns=['image'],
+        #                                     num_proc=4, batched=True, batch_size=1500
+        #                                 ).train_test_split(test_size=0.2,
+        #                                                    stratify_by_column='label')
+        
+        # Need to split twice instead of using `select()` to get stratified samples
+        processed_dataset = raw_dataset['train'].train_test_split(test_size=12500, stratify_by_column='label', seed=42)
+        processed_dataset = processed_dataset['test'].train_test_split(test_size=0.2, stratify_by_column='label', seed=42)
+        processed_dataset = processed_dataset.map(
+            preprocessing_fn, remove_columns = ['image'],
+            num_proc = 4, batched = True, batch_size = 1000
+        )
+
         
     if framework == 'tf':
         tf_train_dataset = processed_dataset['train'].to_tf_dataset(columns='pixel_values', label_cols='label',
