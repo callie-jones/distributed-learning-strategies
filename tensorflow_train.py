@@ -77,6 +77,7 @@ class DistributedLearningTensorFlow:
             print("\nRetrieve model")
             # model = utils.get_model(args.model, "tf")
             model = utils.get_model(args.model, "tf")
+            print(f"trainable weights = {model.summary()}")
 
             # compile the model
             optimizer = tf.keras.optimizers.Adam(
