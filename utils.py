@@ -51,12 +51,6 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
         raise ValueError("Argument model_type must be one of 'cnn', 'transformer'. You supplied:", model_type)
     if framework not in FRAMEWORKS:
         raise ValueError("Argument framework must be one of 'pt', 'tf'. You supplied:", framework)
-    
-    # # Load dataset from disk if it already exists
-    # debug_str = 'debug' if debug else 'prod'
-    # saved_ds_dir = f'processed_dataset_{model_type}_{framework}_{debug_str}'
-    # if os.path.exists(saved_ds_dir) and os.path.isdir(saved_ds_dir):
-    #     return datasets.load_dataset(saved_ds_dir)
 
     # Download the image processor
     processor_name = MODEL_PARAMS[model_type]['name']
@@ -85,17 +79,12 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
                                         ).train_test_split(test_size=0.15,
                                                            stratify_by_column='label')
     else:
-        # processed_dataset = raw_dataset['train'].select(range(12500)).map(preprocessing_fn, remove_columns=['image'],
-        #                                     num_proc=4, batched=True, batch_size=1500
-        #                                 ).train_test_split(test_size=0.2,
-        #                                                    stratify_by_column='label')
-        
         # Need to split twice instead of using `select()` to get stratified samples
         processed_dataset = raw_dataset['train'].train_test_split(test_size=12500, stratify_by_column='label', seed=42)
         processed_dataset = processed_dataset['test'].train_test_split(test_size=0.2, stratify_by_column='label', seed=42)
         processed_dataset = processed_dataset.map(
             preprocessing_fn, remove_columns = ['image'],
-            num_proc = 4, batched = True, batch_size = 1000
+            num_proc = 4, batched = True, batch_size = 500
         )
 
         
@@ -105,9 +94,21 @@ def get_processed_data(model_type: str, debug: bool, framework: str):
         tf_test_dataset = processed_dataset['test'].to_tf_dataset(columns='pixel_values', label_cols='label',
                                                                   batch_size=TRAIN_BATCH_SIZE, shuffle=False)
         processed_dataset = (tf_train_dataset, tf_test_dataset)
+    elif framework == 'pt':
+        processed_dataset = processed_dataset.with_format('torch')
 
-    # print(f"\nSaving dataset to disk in {saved_ds_dir}.")
-    # processed_dataset.save_to_disk(nproc=4)
+        train_dataloader = torch.utils.data.DataLoader(
+            processed_dataset['train'], batch_size = TRAIN_BATCH_SIZE, num_workers = 8, 
+            pin_memory = True, prefetch_factor = 2, shuffle = True,
+            persistent_workers = True
+        )
+
+        test_dataloader = torch.utils.data.DataLoader(
+            processed_dataset['test'], batch_size = TRAIN_BATCH_SIZE, num_workers = 8,
+            pin_memory = True, prefetch_factor = 2, shuffle = False
+        )
+
+        processed_dataset = (train_dataloader, test_dataloader)
 
     print('\n', processed_dataset, '\n')
     return processed_dataset
