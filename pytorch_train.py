@@ -54,16 +54,16 @@ class TorchImagenet(torch.utils.data.Dataset):
 @torch.no_grad()
 def evaluate(
     model: torch.nn.Module, criterion: torch.nn.Module,
-    test_dataloader: torch.utils.data.DataLoader, device: torch.device
+    test_dataloader: torch.utils.data.DataLoader, rank
 ) -> Tuple[float, float]:
 
     running_vloss, running_vacc = 0.0, 0.0
     for pixel_values, labels in tqdm(test_dataloader):
 
         # Make predictions on validation dataset
-        labels = labels.to(device, non_blocking=True)
+        labels = labels.to(rank, non_blocking=True)
         pixel_values = torch.squeeze(pixel_values)
-        pixel_values = pixel_values.to(device, non_blocking=True)
+        pixel_values = pixel_values.to(rank, non_blocking=True)
 
         with torch.cuda.amp.autocast(dtype=torch.float16):
             val_outputs = model(pixel_values).logits
@@ -102,16 +102,16 @@ def train_one_step(
 def train_one_epoch(
     model: torch.nn.Module, criterion: torch.nn.Module,
     train_dataloader: torch.utils.data.DataLoader, 
-    optimizer: torch.optim.Optimizer, device: torch.device, 
+    optimizer: torch.optim.Optimizer, rank, 
     grad_scaler: torch.cuda.amp.GradScaler
 ) -> Tuple[float, float]:
     
     running_loss, running_acc = 0.0, 0.0
     for pixel_values, labels in tqdm(train_dataloader):
 
-        labels = labels.to(device, non_blocking=True)
+        labels = labels.to(rank, non_blocking=True)
         pixel_values = torch.squeeze(pixel_values)
-        pixel_values = pixel_values.to(device, non_blocking=True)
+        pixel_values = pixel_values.to(rank, non_blocking=True)
 
         # Compute output and loss with mixed precision
         batch_loss, output = train_one_step(
@@ -129,7 +129,7 @@ def train_one_epoch(
     return avg_loss, avg_acc
 
 def train(
-    model: Union[torch.nn.Module, torch.nn.parallel.DistributedDataParallel], 
+    rank, model: Union[torch.nn.Module, torch.nn.parallel.DistributedDataParallel], 
     epochs: int, model_name: str, train_dataloader: torch.utils.data.DataLoader,
     test_dataloader: torch.utils.data.DataLoader
     ):
@@ -150,11 +150,11 @@ def train(
         os.remove(log_filename)
 
     torch.backends.cudnn.benchmark = True
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # Define objects needed for training
     optimizer = torch.optim.AdamW(model.parameters(), lr=utils.MODEL_PARAMS[model_name]['learningRate'], weight_decay=utils.WEIGHT_DECAY)
-    criterion = torch.nn.CrossEntropyLoss().to(device)
+    criterion = torch.nn.CrossEntropyLoss().to(rank)
     grad_scaler = torch.cuda.amp.GradScaler()
 
     # Compile model and put on GPU
@@ -167,12 +167,12 @@ def train(
         # Need to tell DistributedSampler what epoch it is
         # if torch.cuda.device_count() > 1:
         train_dataloader.sampler.set_epoch(epoch)
-        test_dataloader.sampler.set_epoch(epoch)
+        # test_dataloader.sampler.set_epoch(epoch)
         
         # Train for one epoch and get loss
         epoch_start_time = time.time()
         train_loss, train_acc = train_one_epoch(model, criterion, train_dataloader, 
-                                                optimizer, device, grad_scaler)
+                                                optimizer, rank, grad_scaler)
         epoch_end_time = time.time()
         epoch_train_time = epoch_end_time - epoch_start_time
         
@@ -182,7 +182,7 @@ def train(
 
         # Evaluate on test set
         eval_start_time = time.time()
-        val_loss, val_accuracy = evaluate(model, criterion, test_dataloader, device)
+        val_loss, val_accuracy = evaluate(model, criterion, test_dataloader, rank)
         eval_end_time = time.time()
         eval_time = eval_end_time - eval_start_time
 
@@ -267,7 +267,7 @@ def main(rank, world_size):
         find_unused_parameters = False
     )
 
-    train(model, 5, 'cnn', train_dataloader, test_dataloader)
+    train(rank, model, 5, 'cnn', train_dataloader, test_dataloader)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Script for training ConvNext and Swin models in PyTorch.")
