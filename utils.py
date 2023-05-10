@@ -4,7 +4,7 @@ import torch
 from transformers import (
     AutoImageProcessor,
     ConvNextForImageClassification,
-    TFConvNextForImageClassification,
+    # TFConvNextForImageClassification,
     SwinForImageClassification,
     PreTrainedModel,
     AutoConfig
